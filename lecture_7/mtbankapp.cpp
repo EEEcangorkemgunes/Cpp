@@ -2,11 +2,11 @@
 #include <array>
 #include <chrono>
 #include <iostream>
-#include <mutex>
 #include <sstream>
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <vector>
 
 class BankAccount {
  public:
@@ -30,9 +30,8 @@ class BankAccount {
  private:
   std::string name;
   int balance;
-  std::mutex m;
 };
-
+//mutex'in
 // struct Transaction {
 //   BankAccount& from;
 //   BankAccount& to;
@@ -91,10 +90,6 @@ class InstructionParser {
   }
 };
 
-//instructionların arasında başka bir threade geçerse hataya sebep olabilir mi?
-//her seferinde lock guard ile kilitlemek mi daha performanslı yoksa mutex lock ve unlock mı?
-//balance'ı kontrol etmek
-//condition variable'ı kullanan bir örnek  
 class Application {
  public:
   void exec() {
@@ -106,8 +101,14 @@ class Application {
     printBalances();
     Menu::printMenu();
     std::getline(std::cin, instruction);
-
+    std::vector<std::thread> threads;
     while (instruction != "exit") {
+      if (instruction == "print") {
+        printBalances();
+        std::getline(std::cin, instruction);
+        continue;
+      }
+
       std::istringstream iss(instruction);
       std::string word;
       std::array<std::string, 3> words;
@@ -126,11 +127,15 @@ class Application {
         std::getline(std::cin, instruction);
         continue;
       }
-      Transaction::transfer(accounts[words[0]], accounts[words[1]],
-                            std::stoi(words[2]));
+      threads.emplace_back(
+          std::thread(Transaction::transfer, std::ref(accounts[words[0]]),
+                      std::ref(accounts[words[1]]), std::stoi(words[2])));
       printBalances();
       Menu::printMenu();
       std::getline(std::cin, instruction);
+    }
+    for (auto& thread : threads) {
+      thread.join();
     }
   }
 
